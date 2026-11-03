@@ -96,6 +96,8 @@ class OpenAIProvider(LLMProvider):
             f"## Schema\n{schema}\n",
             "## Rules\n"
             "- Call the execute_sql function with the SQL query.\n"
+            "- IMPORTANT: PostgreSQL lowercases unquoted identifiers. Always double-quote column and table names that contain uppercase letters, e.g. \"publisherId\" not publisherId.\n"
+            "- Use identifiers exactly as shown in the schema above (already quoted where needed).\n"
             "- Limit SELECTs to 100 rows unless asked otherwise.\n"
             "- Never generate DROP DATABASE, DROP SCHEMA, or TRUNCATE.\n"
             "- If ambiguous, state your assumptions.\n",
