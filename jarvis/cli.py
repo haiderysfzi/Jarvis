@@ -27,7 +27,11 @@ def main():
     llm = create_provider(
         provider=provider_name,
         model=model,
-        api_key=os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY"),
+        api_key=(
+            os.environ.get("ANTHROPIC_API_KEY")
+            or os.environ.get("OPENAI_API_KEY")
+            or os.environ.get("GEMINI_API_KEY")
+        ),
         ollama_base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
     )
 

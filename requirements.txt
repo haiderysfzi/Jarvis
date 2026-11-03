@@ -9,4 +9,5 @@ requests>=2.31.0
 # LLM providers — install the one(s) you need:
 anthropic>=0.52.0
 openai>=1.50.0
+google-genai>=1.0.0
 # ollama uses requests (already above)

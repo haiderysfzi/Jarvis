@@ -25,6 +25,13 @@ def create_provider(
             api_key=api_key,
         )
 
+    if provider == "gemini":
+        from jarvis.llm.gemini import GeminiProvider
+        return GeminiProvider(
+            model=model or "gemini-2.5-flash",
+            api_key=api_key,
+        )
+
     if provider == "ollama":
         from jarvis.llm.ollama import OllamaProvider
         return OllamaProvider(
@@ -33,5 +40,5 @@ def create_provider(
         )
 
     raise ValueError(
-        f"Unknown provider '{provider}'. Available: anthropic, openai, ollama"
+        f"Unknown provider '{provider}'. Available: anthropic, openai, gemini, ollama"
     )

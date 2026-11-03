@@ -18,6 +18,7 @@ cp .env.example .env
 |---|---|---|---|
 | Claude | `anthropic` | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
 | OpenAI | `openai` | `OPENAI_API_KEY` | `gpt-4o` |
+| Gemini | `gemini` | `GEMINI_API_KEY` | `gemini-2.5-flash` |
 | Ollama | `ollama` | None (local) | `llama3.1` |
 
 ### CLI
@@ -135,6 +136,7 @@ The LLM just does language: turning English into SQL, and results into English.
 | `JARVIS_PROVIDER` | No | `anthropic`, `openai`, or `ollama` (default: `anthropic`) |
 | `ANTHROPIC_API_KEY` | If anthropic | Claude API key |
 | `OPENAI_API_KEY` | If openai | OpenAI API key |
+| `GEMINI_API_KEY` | If gemini | Google Gemini API key |
 | `OLLAMA_BASE_URL` | If ollama | Ollama server URL (default: `http://localhost:11434`) |
 | `JARVIS_MODEL` | No | Override the default model for your provider |
 | `JARVIS_READ_ONLY` | No | `true` to block all write operations |
