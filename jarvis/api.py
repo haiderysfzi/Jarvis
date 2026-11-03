@@ -4,16 +4,23 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
+
+from jarvis.agent import Agent
+from jarvis.db import Database
+from jarvis.llm import create_provider
 
 
 class Settings(BaseSettings):
     database_url: str
-    anthropic_api_key: str
+    jarvis_provider: str = "anthropic"
+    jarvis_model: str | None = None
     jarvis_read_only: bool = False
-    jarvis_model: str = "claude-sonnet-4-20250514"
+    anthropic_api_key: str | None = None
+    openai_api_key: str | None = None
+    ollama_base_url: str = "http://localhost:11434"
 
     model_config = {"env_file": ".env"}
 
@@ -38,23 +45,20 @@ class QueryResponse(BaseModel):
 
 
 settings = Settings()
-
-# Late import to avoid circular issues at module level
-from jarvis.agent import Agent  # noqa: E402
-from jarvis.db import Database  # noqa: E402
-
 _agent: Agent | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _agent
-    db = Database(settings.database_url)
-    _agent = Agent(
-        db=db,
+    llm = create_provider(
+        provider=settings.jarvis_provider,
         model=settings.jarvis_model,
-        read_only=settings.jarvis_read_only,
+        api_key=settings.anthropic_api_key or settings.openai_api_key,
+        ollama_base_url=settings.ollama_base_url,
     )
+    db = Database(settings.database_url)
+    _agent = Agent(db=db, llm=llm, read_only=settings.jarvis_read_only)
     _agent.initialize()
     yield
     db.close()
@@ -62,7 +66,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Jarvis",
-    description="Natural language database agent — talk to your Postgres in plain English.",
+    description="Natural language database agent. Pluggable LLM backend.",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -98,7 +102,7 @@ def confirm(req: ConfirmRequest):
 
 @app.get("/schema")
 def schema():
-    return {"schema": _agent._schema}
+    return {"schema": _agent.schema}
 
 
 @app.get("/health")

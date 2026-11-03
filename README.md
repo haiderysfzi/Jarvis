@@ -1,16 +1,24 @@
 # Jarvis
 
-Natural language database agent. Talk to your PostgreSQL database in plain English — Jarvis translates your words into SQL, runs it, and explains the results back to you.
+Natural language database agent. Talk to your PostgreSQL database in plain English — Jarvis translates your words into SQL, runs it, and explains the results.
 
-Built on Claude as the reasoning engine.
+Jarvis is the agent. The LLM is a pluggable tool it uses — swap between Claude, GPT, or local models via Ollama without changing a line of code.
 
 ## Quickstart
 
 ```bash
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env with your DATABASE_URL and ANTHROPIC_API_KEY
+# Edit .env — set DATABASE_URL and your LLM provider
 ```
+
+### Pick your LLM
+
+| Provider | `JARVIS_PROVIDER` | Key needed | Default model |
+|---|---|---|---|
+| Claude | `anthropic` | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
+| OpenAI | `openai` | `OPENAI_API_KEY` | `gpt-4o` |
+| Ollama | `ollama` | None (local) | `llama3.1` |
 
 ### CLI
 
@@ -65,33 +73,71 @@ curl -X POST http://localhost:8000/confirm \
 **Other endpoints:**
 - `GET /schema` — the database schema Jarvis sees
 - `GET /health` — health check
-- `GET /docs` — interactive API docs (Swagger)
+- `GET /docs` — interactive Swagger UI
 
 ### In-process (integrate into existing code)
 
 ```python
 from jarvis.db import Database
 from jarvis.agent import Agent
+from jarvis.llm import create_provider
 
+llm = create_provider("ollama", model="llama3.1")  # or "anthropic", "openai"
 db = Database("postgresql://user:pass@localhost:5432/mydb")
-agent = Agent(db=db)
+agent = Agent(db=db, llm=llm)
 agent.initialize()
 
 result = agent.query("how many games have I played?", user_context={"user_id": 42})
 print(result.answer)  # "You've played 137 games total."
-print(result.sql)     # "SELECT COUNT(*) FROM games WHERE user_id = 42"
 ```
 
-## Configuration
+## Architecture
 
-Set these in `.env`:
+```
+┌──────────────────────────────────────────────┐
+│                   Jarvis Agent               │
+│                                              │
+│  ┌─────────┐   ┌──────────┐   ┌──────────┐  │
+│  │ Safety   │   │ Schema   │   │ Query    │  │
+│  │ & Rules  │   │ Context  │   │ Executor │  │
+│  └─────────┘   └──────────┘   └──────────┘  │
+│        │              │              │       │
+│        └──────────────┼──────────────┘       │
+│                       │                      │
+│              ┌────────┴────────┐             │
+│              │   LLM Provider  │             │
+│              │   (pluggable)   │             │
+│              └────────┬────────┘             │
+│          ┌────────────┼────────────┐         │
+│          ▼            ▼            ▼         │
+│      Anthropic     OpenAI      Ollama        │
+│      (Claude)      (GPT)      (Local)        │
+└──────────────────────────────────────────────┘
+         │
+    ┌────┴────┐
+    │Postgres │
+    └─────────┘
+```
+
+Jarvis owns:
+- **Schema introspection** — reads your tables, columns, PKs, FKs, row counts
+- **Safety enforcement** — blocks dangerous ops, confirms destructive queries, read-only mode
+- **Query execution** — runs SQL with timeouts, caps results
+- **The conversation flow** — NL in, SQL generated, results explained
+
+The LLM just does language: turning English into SQL, and results into English.
+
+## Configuration
 
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `ANTHROPIC_API_KEY` | Yes | Claude API key |
-| `JARVIS_READ_ONLY` | No | `true` to block all write operations (default: `false`) |
-| `JARVIS_MODEL` | No | Claude model to use (default: `claude-sonnet-4-20250514`) |
+| `JARVIS_PROVIDER` | No | `anthropic`, `openai`, or `ollama` (default: `anthropic`) |
+| `ANTHROPIC_API_KEY` | If anthropic | Claude API key |
+| `OPENAI_API_KEY` | If openai | OpenAI API key |
+| `OLLAMA_BASE_URL` | If ollama | Ollama server URL (default: `http://localhost:11434`) |
+| `JARVIS_MODEL` | No | Override the default model for your provider |
+| `JARVIS_READ_ONLY` | No | `true` to block all write operations |
 
 ## Safety
 
@@ -102,13 +148,3 @@ Set these in `.env`:
 - **Results capped** at 500 rows per query
 
 Tip: connect with a read-only database user for maximum safety.
-
-## How it works
-
-1. On startup, Jarvis introspects your Postgres schema — tables, columns, types, primary keys, foreign keys, approximate row counts
-2. The full schema is included in Claude's system prompt so it knows your data model
-3. Your plain-English query goes to Claude, which generates SQL via tool use
-4. The SQL executes against Postgres and results feed back to Claude
-5. Claude returns a human-readable answer
-
-Multi-step queries are supported — Claude can chain multiple SQL calls to answer complex questions.

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from jarvis.agent import Agent
 from jarvis.db import Database
+from jarvis.llm import create_provider
 
 
 def main():
@@ -19,20 +20,23 @@ def main():
         print("Error: DATABASE_URL not set. Copy .env.example to .env and configure it.")
         sys.exit(1)
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("Error: ANTHROPIC_API_KEY not set.")
-        sys.exit(1)
-
-    model = os.environ.get("JARVIS_MODEL", "claude-sonnet-4-20250514")
+    provider_name = os.environ.get("JARVIS_PROVIDER", "anthropic")
+    model = os.environ.get("JARVIS_MODEL")
     read_only = os.environ.get("JARVIS_READ_ONLY", "false").lower() == "true"
 
+    llm = create_provider(
+        provider=provider_name,
+        model=model,
+        api_key=os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY"),
+        ollama_base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
+    )
+
     db = Database(dsn)
-    agent = Agent(db=db, model=model, read_only=read_only)
+    agent = Agent(db=db, llm=llm, read_only=read_only)
 
     print("Connecting to database...")
     agent.initialize()
-    print(f"Ready. Connected to database. Model: {model}")
-    print(f"Read-only: {read_only}")
+    print(f"Ready. Provider: {provider_name} | Model: {model or 'default'} | Read-only: {read_only}")
     print("Type your query in plain English. Commands: /schema, /quit\n")
 
     pending_sql: str | None = None
@@ -52,10 +56,9 @@ def main():
             break
 
         if user_input.lower() == "/schema":
-            print(agent._schema)
+            print(agent.schema)
             continue
 
-        # Handle confirmation of destructive queries
         if pending_sql and user_input.lower() in ("yes", "y", "confirm"):
             result = agent.execute_confirmed(pending_sql)
             print(f"\nJarvis: {result.answer}")
@@ -71,7 +74,6 @@ def main():
             continue
 
         pending_sql = None
-
         result = agent.query(message=user_input, auto_execute_destructive=False)
 
         print(f"\nJarvis: {result.answer}")
