@@ -31,9 +31,14 @@ TOOLS = [
 
 
 class OpenAIProvider(LLMProvider):
-    def __init__(self, model: str = "gpt-4o", api_key: str | None = None):
+    def __init__(self, model: str = "gpt-4o", api_key: str | None = None, base_url: str | None = None):
         self._model = model
-        self._client = OpenAI(api_key=api_key) if api_key else OpenAI()
+        kwargs = {}
+        if api_key:
+            kwargs["api_key"] = api_key
+        if base_url:
+            kwargs["base_url"] = base_url
+        self._client = OpenAI(**kwargs)
 
     def generate_sql(
         self,

@@ -21,7 +21,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-ONLY", "pg_isready", "-U", "jarvis"]
+      test: ["CMD-SHELL", "pg_isready -U jarvis"]
       interval: 5s
       retries: 5
     restart: unless-stopped

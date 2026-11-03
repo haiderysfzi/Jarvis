@@ -23,6 +23,7 @@ def create_provider(
         return OpenAIProvider(
             model=model or "gpt-4o",
             api_key=api_key,
+            base_url=kwargs.get("base_url"),
         )
 
     if provider == "gemini":
