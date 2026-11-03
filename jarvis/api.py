@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
     gemini_api_key: str | None = None
+    llm_base_url: str | None = None
     ollama_base_url: str = "http://localhost:11434"
 
     model_config = {"env_file": ".env"}
@@ -56,6 +57,7 @@ async def lifespan(app: FastAPI):
         provider=settings.jarvis_provider,
         model=settings.jarvis_model,
         api_key=settings.anthropic_api_key or settings.openai_api_key or settings.gemini_api_key,
+        base_url=settings.llm_base_url,
         ollama_base_url=settings.ollama_base_url,
     )
     db = Database(settings.database_url)

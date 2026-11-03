@@ -32,6 +32,7 @@ class OllamaProvider(LLMProvider):
         system = self._build_system(schema, user_context, read_only)
         prompt = (
             f"{system}\n\n"
+            "IMPORTANT: PostgreSQL lowercases unquoted identifiers. Always double-quote column and table names that contain uppercase letters, e.g. \"publisherId\" not publisherId. Use identifiers exactly as shown in the schema.\n\n"
             f"User: {user_message}\n\n"
             "Respond with ONLY a SQL query inside a ```sql code block. Nothing else."
         )

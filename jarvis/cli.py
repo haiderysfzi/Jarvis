@@ -32,6 +32,7 @@ def main():
             or os.environ.get("OPENAI_API_KEY")
             or os.environ.get("GEMINI_API_KEY")
         ),
+        base_url=os.environ.get("LLM_BASE_URL"),
         ollama_base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
     )
 

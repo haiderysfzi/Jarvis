@@ -2,8 +2,19 @@
 
 from __future__ import annotations
 
+import re
+
 import psycopg2
 import psycopg2.extras
+
+_PLAIN_IDENT = re.compile(r"^[a-z_][a-z0-9_]*$")
+
+
+def _quote(name: str) -> str:
+    """Double-quote an identifier if it needs quoting in PostgreSQL."""
+    if _PLAIN_IDENT.match(name):
+        return name
+    return f'"{name}"'
 
 
 class Database:
@@ -62,7 +73,7 @@ class Database:
         pks: dict[str, list[str]] = {}
         for row in cur.fetchall():
             key = f"{row['table_schema']}.{row['table_name']}"
-            pks.setdefault(key, []).append(row["column_name"])
+            pks.setdefault(key, []).append(_quote(row["column_name"]))
 
         # Foreign keys
         cur.execute(
@@ -86,7 +97,7 @@ class Database:
         fks: dict[str, list[str]] = {}
         for row in cur.fetchall():
             key = f"{row['table_schema']}.{row['table_name']}"
-            fk = f"{row['column_name']} -> {row['ref_schema']}.{row['ref_table']}.{row['ref_column']}"
+            fk = f"{_quote(row['column_name'])} -> {row['ref_schema']}.{_quote(row['ref_table'])}.{_quote(row['ref_column'])}"
             fks.setdefault(key, []).append(fk)
 
         # Row counts (approximate, from pg_stat)
@@ -112,13 +123,16 @@ class Database:
         lines: list[str] = []
         for table_key, cols in tables.items():
             count = row_counts.get(table_key, "?")
-            lines.append(f"### {table_key} (~{count} rows)")
+            schema_name, table_name = table_key.split(".", 1)
+            quoted_table = f"{schema_name}.{_quote(table_name)}"
+            lines.append(f"### {quoted_table} (~{count} rows)")
             pk_cols = pks.get(table_key, [])
             for c in cols:
+                col_quoted = _quote(c["column_name"])
                 nullable = "NULL" if c["is_nullable"] == "YES" else "NOT NULL"
-                pk_mark = " [PK]" if c["column_name"] in pk_cols else ""
+                pk_mark = " [PK]" if col_quoted in pk_cols else ""
                 default = f" DEFAULT {c['column_default']}" if c["column_default"] else ""
-                lines.append(f"  - {c['column_name']}: {c['data_type']} {nullable}{pk_mark}{default}")
+                lines.append(f"  - {col_quoted}: {c['data_type']} {nullable}{pk_mark}{default}")
             if table_key in fks:
                 lines.append("  Foreign keys:")
                 for fk in fks[table_key]:

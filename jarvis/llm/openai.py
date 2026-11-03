@@ -31,9 +31,14 @@ TOOLS = [
 
 
 class OpenAIProvider(LLMProvider):
-    def __init__(self, model: str = "gpt-4o", api_key: str | None = None):
+    def __init__(self, model: str = "gpt-4o", api_key: str | None = None, base_url: str | None = None):
         self._model = model
-        self._client = OpenAI(api_key=api_key) if api_key else OpenAI()
+        kwargs = {}
+        if api_key:
+            kwargs["api_key"] = api_key
+        if base_url:
+            kwargs["base_url"] = base_url
+        self._client = OpenAI(**kwargs)
 
     def generate_sql(
         self,
@@ -91,6 +96,8 @@ class OpenAIProvider(LLMProvider):
             f"## Schema\n{schema}\n",
             "## Rules\n"
             "- Call the execute_sql function with the SQL query.\n"
+            "- IMPORTANT: PostgreSQL lowercases unquoted identifiers. Always double-quote column and table names that contain uppercase letters, e.g. \"publisherId\" not publisherId.\n"
+            "- Use identifiers exactly as shown in the schema above (already quoted where needed).\n"
             "- Limit SELECTs to 100 rows unless asked otherwise.\n"
             "- Never generate DROP DATABASE, DROP SCHEMA, or TRUNCATE.\n"
             "- If ambiguous, state your assumptions.\n",

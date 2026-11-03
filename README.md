@@ -47,7 +47,71 @@ python main.py serve              # localhost:8000
 python main.py serve 0.0.0.0 9000 # custom host/port
 ```
 
-**Query:**
+Or with Docker:
+
+```bash
+docker compose up -d
+```
+
+## API Reference
+
+### `GET /health`
+
+Health check.
+
+```bash
+curl http://localhost:8000/health
+```
+
+```json
+{"status": "ok"}
+```
+
+### `GET /schema`
+
+Returns the database schema that Jarvis introspected on startup.
+
+```bash
+curl http://localhost:8000/schema
+```
+
+### `GET /docs`
+
+Interactive Swagger UI — open in a browser.
+
+### `POST /query`
+
+Ask a question or give a command in plain English.
+
+**Request body:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `message` | string | Yes | Natural language query |
+| `user_context` | object | No | Extra context passed to the LLM (e.g. `{"user_id": 42}`) |
+| `auto_execute` | bool | No | Skip confirmation for destructive queries (default: `false`) |
+
+**Example — read query:**
+
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"message": "how many users are there?"}'
+```
+
+```json
+{
+  "answer": "There are 1,204 users in the database.",
+  "sql": "SELECT COUNT(*) FROM users",
+  "is_destructive": false,
+  "requires_confirmation": false,
+  "blocked": false,
+  "results": {"success": true, "columns": ["count"], "rows": [{"count": 1204}], "row_count": 1}
+}
+```
+
+**Example — with user context:**
+
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
@@ -63,7 +127,40 @@ curl -X POST http://localhost:8000/query \
 }
 ```
 
-**Destructive queries** return `requires_confirmation: true` unless you pass `"auto_execute": true`. Confirm with:
+**Example — destructive query (requires confirmation):**
+
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"message": "delete all posts by user 5"}'
+```
+
+```json
+{
+  "answer": "This is a destructive query. Please confirm execution.",
+  "sql": "DELETE FROM posts WHERE user_id = 5",
+  "is_destructive": true,
+  "requires_confirmation": true
+}
+```
+
+**Example — auto-execute destructive query (skip confirmation):**
+
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"message": "delete all posts by user 5", "auto_execute": true}'
+```
+
+### `POST /confirm`
+
+Execute a destructive query that was previously returned with `requires_confirmation: true`.
+
+**Request body:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `sql` | string | Yes | The exact SQL from the `/query` response |
 
 ```bash
 curl -X POST http://localhost:8000/confirm \
@@ -71,10 +168,14 @@ curl -X POST http://localhost:8000/confirm \
   -d '{"sql": "DELETE FROM posts WHERE user_id = 5"}'
 ```
 
-**Other endpoints:**
-- `GET /schema` — the database schema Jarvis sees
-- `GET /health` — health check
-- `GET /docs` — interactive Swagger UI
+```json
+{
+  "answer": "Done. 12 row(s) affected.",
+  "sql": "DELETE FROM posts WHERE user_id = 5",
+  "is_destructive": true,
+  "results": {"success": true, "rows_affected": 12}
+}
+```
 
 ### In-process (integrate into existing code)
 

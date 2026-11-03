@@ -5,26 +5,4 @@ services:
       - "8000:8000"
     env_file:
       - .env
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
-
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: jarvis
-      POSTGRES_PASSWORD: jarvis
-      POSTGRES_DB: jarvis
-    ports:
-      - "5433:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-ONLY", "pg_isready", "-U", "jarvis"]
-      interval: 5s
-      retries: 5
-    restart: unless-stopped
-
-volumes:
-  pgdata:
